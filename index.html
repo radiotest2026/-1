@@ -78,8 +78,13 @@
 <body>
     <div class="mobile-news-container">
         
-        <!-- حاوية الحلقات -->
-        <article id="clips-container" class="p-4 pt-6"></article>
+        <!-- حاوية الحلقات (تبدأ برسالة التحميل الأنيقة وتختفي فور جلب البيانات) -->
+        <article id="clips-container" class="p-4 pt-6">
+            <div class="flex flex-col items-center justify-center py-20 text-center">
+                <div class="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p class="text-xs font-bold text-gray-500">جاري تحميل الميديا الخاصة بك...</p>
+            </div>
+        </article>
 
         <!-- الفوتر -->
         <footer class="bg-blue-950 text-white text-center py-3 font-black text-xs select-text mt-auto">
@@ -161,8 +166,8 @@
         const db = firebase.firestore();
 
         let isAdmin = false;
-        let allClipsData = []; // تخزين جميع المقاطع القادمة من السحابة
-        let visibleCount = 8;  // عدد المقاطع التي يتم عرضها مبدئياً
+        let allClipsData = []; 
+        let visibleCount = 8;  
 
         const defaultClips = [
             {
@@ -236,7 +241,6 @@
             const container = document.getElementById('clips-container');
             let html = '';
 
-            // عرض المقاطع بناءً على العدد المسموح به حالياً (visibleCount)
             const clipsToShow = allClipsData.slice(0, visibleCount);
 
             clipsToShow.forEach((clip) => {
@@ -301,7 +305,6 @@
                 </div>`;
             });
 
-            // إذا كان هناك مقاطع إضافية غير معروضة، يتم إظهار مستطيل "المزيد من الميديا" الأخضر
             if (allClipsData.length > visibleCount) {
                 html += `
                 <div class="text-center my-6">
@@ -314,9 +317,8 @@
             container.innerHTML = html;
         }
 
-        // دالة عرض المزيد عند الضغط على المستطيل الأخضر
         function loadMoreClips() {
-            visibleCount += 8; // إضافة 8 مقاطع أخرى
+            visibleCount += 8; 
             renderClips();
         }
 
@@ -433,7 +435,7 @@
                 document.getElementById('newUrl').value = '';
                 document.getElementById('newPresenter').value = '';
                 closeAdminPanel();
-                visibleCount = 8; // العودة لعرض أول 8 مقاطع ليشاهد المقطع الجديد في الأعلى
+                visibleCount = 8; 
                 fetchClips();
                 alert('تم حفظ ونشر المقطع في السحابة بالتوقيت المحلي الفعلي بنجاح!');
             } catch (error) {
