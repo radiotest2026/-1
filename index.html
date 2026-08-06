@@ -78,10 +78,8 @@
 <body>
     <div class="mobile-news-container">
         
-        <!-- حاوية الحلقات التي يتم جلبها من السحابة -->
-        <article id="clips-container" class="p-4 pt-6">
-            <div class="text-center text-gray-500 py-10 font-bold text-xs">جاري تحميل الحلقات من السحابة...</div>
-        </article>
+        <!-- حاوية الحلقات (تمت إزالة عبارة التحميل المزعجة لتفتح مباشرة) -->
+        <article id="clips-container" class="p-4 pt-6"></article>
 
         <!-- الفوتر -->
         <footer class="bg-blue-950 text-white text-center py-3 font-black text-xs select-text mt-auto">
@@ -230,7 +228,6 @@
                 renderClips(clips);
             } catch (error) {
                 console.error("خطأ في جلب البيانات من السحابة: ", error);
-                container.innerHTML = `<div class="text-center text-red-500 py-6 font-bold text-xs">تعذر الاتصال بقاعدة البيانات السحابية. يرجى التأكد من تفعيل Firestore Database.</div>`;
             }
         }
 
@@ -398,7 +395,6 @@
                 return;
             }
 
-            // توليد التوقيت المحلي الفعلي للحظة الإضافة بدقة
             const now = new Date();
             const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
             const dateStr = now.toLocaleString('ar-EG', options);
