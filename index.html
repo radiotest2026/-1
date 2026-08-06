@@ -93,7 +93,7 @@
     <div id="passwordModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
         <div class="bg-slate-900 p-5 rounded-xl border border-red-600/50 w-80 text-center shadow-2xl">
             <h3 class="text-white font-black mb-3 text-sm">لوحة تحكم المشرف</h3>
-            <p class="text-gray-400 text-xs mb-3">أدخل كلمة السر للمتابعة</p>
+            <p class="text-gray-400 text-xs mb-3">أدخل كلمة السر للتحكم (حذف، تعديل، إضافة)</p>
             <input type="password" id="adminPassword" placeholder="كلمة السر" class="w-full bg-slate-950 border border-slate-700 text-white p-2 rounded-lg text-center mb-3 text-sm focus:outline-none focus:border-red-600">
             <div class="flex gap-2">
                 <button onclick="checkPassword()" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-xs">دخول</button>
@@ -102,17 +102,25 @@
         </div>
     </div>
 
-    <!-- نافذة لوحة التحكم لإضافة الحلقات للسحابة -->
+    <!-- لوحة إضافة ريكورد جديد -->
     <div id="adminPanel" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center; padding: 15px;">
         <div class="bg-slate-900 p-5 rounded-2xl border-2 border-yellow-500/50 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
                 <h3 class="text-yellow-400 font-black text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> إضافة ريكورد للسحابة مباشرة
+                    <i class="fa-solid fa-cloud-arrow-up"></i> لوحة التحكم السحابية
                 </h3>
                 <button onclick="closeAdminPanel()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
             <div class="space-y-3">
+                <div class="bg-blue-950/40 p-3 rounded-lg border border-blue-900 mb-2">
+                    <p class="text-xs text-blue-300 font-bold">ملاحظة:</p>
+                    <p class="text-[11px] text-gray-300">تم تفعيل وضع التعديل والحذف! يمكنك الآن إغلاق هذه اللوحة ورؤية أزرار (الحذف X والتعديل) مباشرة على كل كارت ريكورد في الموقع.</p>
+                </div>
+
+                <hr class="border-slate-800 my-2">
+
+                <h4 class="text-xs font-bold text-white mb-2"><i class="fa-solid fa-plus-circle text-red-500"></i> إضافة ريكورد جديد للسحابة:</h4>
                 <div>
                     <label class="block text-gray-300 text-xs font-bold mb-1">عنوان المداخلة أو الحلقة:</label>
                     <input type="text" id="newTitle" placeholder="مثال: حلقة برنامج «ملوك التالتة»" class="w-full bg-slate-950 border border-slate-700 text-white p-2.5 rounded-lg text-xs focus:outline-none focus:border-yellow-500">
@@ -154,7 +162,8 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // الحلقات الافتراضية في حال كانت قاعدة البيانات فارغة لأول مرة
+        let isAdmin = false;
+
         const defaultClips = [
             {
                 title: "حلقة برنامج «ملوك التالتة» تقديم وائل عيسي",
@@ -193,13 +202,11 @@
             }
         ];
 
-        // دالة استخراج معرف Vocaroo من الرابط
         function extractVocaId(url) {
             const match = url.match(/([a-zA-Z0-9]+)$/);
             return match ? match[1] : '';
         }
 
-        // جلب الحلقات من السحابة وعرضها
         async function fetchClips() {
             const container = document.getElementById('clips-container');
             try {
@@ -210,10 +217,13 @@
                     for (let clip of defaultClips) {
                         await db.collection('radio_clips').add(clip);
                     }
-                    clips = defaultClips;
+                    const newSnapshot = await db.collection('radio_clips').orderBy('timestamp', 'desc').get();
+                    newSnapshot.forEach(doc => {
+                        clips.push({ id: doc.id, ...doc.data() });
+                    });
                 } else {
                     snapshot.forEach(doc => {
-                        clips.push(doc.data());
+                        clips.push({ id: doc.id, ...doc.data() });
                     });
                 }
 
@@ -224,51 +234,68 @@
             }
         }
 
-        // عرض الحلقات في الصفحة
         function renderClips(clips) {
             const container = document.getElementById('clips-container');
             let html = '';
 
             clips.forEach((clip) => {
                 const vocaId = extractVocaId(clip.url);
+                
+                let adminControls = '';
+                if (isAdmin) {
+                    adminControls = `
+                    <div class="flex gap-1 bg-slate-950 p-1.5 rounded-lg border border-red-600/40 mb-2 justify-end items-center">
+                        <span class="text-[10px] text-red-400 font-bold ml-auto px-1">لوحة تحكم المشرف:</span>
+                        <button onclick="editClip('${clip.id}', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}', '${clip.presenter.replace(/'/g, "\\'")}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1" title="تعديل المقطع">
+                            <i class="fa-solid fa-pen"></i> تعديل
+                        </button>
+                        <button onclick="deleteClip('${clip.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1" title="حذف المقطع">
+                            <i class="fa-solid fa-xmark text-sm"></i> حذف
+                        </button>
+                    </div>`;
+                }
+
                 html += `
-                <div class="audio-card mb-5 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 rounded-xl border-2 border-red-600/50 shadow-xl relative overflow-hidden">
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="admin-mic-trigger w-12 h-12 rounded-xl bg-red-600/20 flex items-center justify-center text-red-500 flex-shrink-0 border border-red-600/30 cursor-pointer" title="اضغط 5 مرات لفتح لوحة التحكم">
-                            <i class="fa-solid fa-microphone-lines text-xl animate-pulse"></i>
+                <div class="clip-container mb-6">
+                    ${adminControls}
+                    <div class="audio-card mb-2 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 rounded-xl border-2 border-red-600/50 shadow-xl relative overflow-hidden">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="admin-mic-trigger w-12 h-12 rounded-xl bg-red-600/20 flex items-center justify-center text-red-500 flex-shrink-0 border border-red-600/30 cursor-pointer" title="اضغط 5 مرات لفتح لوحة التحكم">
+                                <i class="fa-solid fa-microphone-lines text-xl animate-pulse"></i>
+                            </div>
+                            <h1 class="text-base sm:text-lg font-black text-white leading-snug select-text">${clip.title}</h1>
                         </div>
-                        <h1 class="text-base sm:text-lg font-black text-white leading-snug select-text">${clip.title}</h1>
-                    </div>
 
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1 border-y border-slate-800 py-2.5">
-                        <span class="text-[11px] text-gray-300 font-bold flex items-center gap-1.5">
-                            <i class="fa-solid fa-clock text-red-500"></i> ${clip.date}
-                        </span>
-                        <span class="text-[11px] text-gray-300 font-bold flex items-center gap-1.5">
-                            <i class="fa-solid fa-microphone text-red-500 text-xs mic-persistent-glow"></i> تقديم: ${clip.presenter}
-                        </span>
-                    </div>
-
-                    <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
-                        <div class="flex items-center justify-between mb-1.5 px-1">
-                            <span class="text-xs font-bold text-yellow-400 flex items-center gap-1.5">
-                                <i class="fa-solid fa-podcast text-red-500 text-sm mic-persistent-glow"></i> الاستماع للحلقة:
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1 border-y border-slate-800 py-2.5">
+                            <span class="text-[11px] text-gray-300 font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-clock text-red-500"></i> ${clip.date}
+                            </span>
+                            <span class="text-[11px] text-gray-300 font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-microphone text-red-500 text-xs mic-persistent-glow"></i> تقديم: ${clip.presenter}
                             </span>
                         </div>
-                        <div style="width: 100%; height: 46px; position: relative; border-radius: 6px; overflow: hidden; background: #0f172a;">
-                            <iframe src="https://voca.ro/embed/${vocaId}?autoplay=0" loading="lazy" style="top: 0; left: 0; width: 100%; height: 100%; position: absolute; border: 0;" allowfullscreen></iframe>
+
+                        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
+                            <div class="flex items-center justify-between mb-1.5 px-1">
+                                <span class="text-xs font-bold text-yellow-400 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-podcast text-red-500 text-sm mic-persistent-glow"></i> الاستماع للحلقة:
+                                </span>
+                            </div>
+                            <div style="width: 100%; height: 46px; position: relative; border-radius: 6px; overflow: hidden; background: #0f172a;">
+                                <iframe src="https://voca.ro/embed/${vocaId}?autoplay=0" loading="lazy" style="top: 0; left: 0; width: 100%; height: 100%; position: absolute; border: 0;" allowfullscreen></iframe>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="flex justify-between items-center mb-8 bg-gray-50 p-2.5 rounded-xl border border-gray-200 shadow-sm">
-                    <span class="text-xs font-bold text-gray-700">مشاركة المقطع:</span>
-                    <div class="flex gap-2 items-center">
-                        <a href="https://shababwryadhmedia.vercel.app/" title="الرئيسية" class="share-btn bg-blue-950"><i class="fa-solid fa-house"></i></a>
-                        <button onclick="copyLink('${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" title="نسخ العنوان والرابط" class="share-btn bg-amber-600"><i class="fa-solid fa-copy"></i></button>
-                        <button onclick="shareLink('wa', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-green-500"><i class="fa-brands fa-whatsapp"></i></button>
-                        <button onclick="shareLink('fb', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-blue-600"><i class="fa-brands fa-facebook-f"></i></button>
-                        <button onclick="shareLink('tw', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-black"><i class="fa-brands fa-x-twitter"></i></button>
+                    
+                    <div class="flex justify-between items-center mb-4 bg-gray-50 p-2.5 rounded-xl border border-gray-200 shadow-sm">
+                        <span class="text-xs font-bold text-gray-700">مشاركة المقطع:</span>
+                        <div class="flex gap-2 items-center">
+                            <a href="https://shababwryadhmedia.vercel.app/" title="الرئيسية" class="share-btn bg-blue-950"><i class="fa-solid fa-house"></i></a>
+                            <button onclick="copyLink('${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" title="نسخ العنوان والرابط" class="share-btn bg-amber-600"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="shareLink('wa', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-green-500"><i class="fa-brands fa-whatsapp"></i></button>
+                            <button onclick="shareLink('fb', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-blue-600"><i class="fa-brands fa-facebook-f"></i></button>
+                            <button onclick="shareLink('tw', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-black"><i class="fa-brands fa-x-twitter"></i></button>
+                        </div>
                     </div>
                 </div>`;
             });
@@ -276,7 +303,48 @@
             container.innerHTML = html;
         }
 
-        // نظام النقر 5 مرات على أي علامة ميكروفون
+        async function deleteClip(id) {
+            if (confirm('هل أنت متأكد من حذف هذا المقطع نهائياً من السحابة؟')) {
+                try {
+                    await db.collection('radio_clips').doc(id).delete();
+                    fetchClips();
+                    alert('تم حذف المقطع بنجاح!');
+                } catch (error) {
+                    console.error("خطأ أثناء الحذف: ", error);
+                    alert('حدث خطأ أثناء محاولة الحذف.');
+                }
+            }
+        }
+
+        async function editClip(id, oldTitle, oldUrl, oldPresenter) {
+            const newTitle = prompt("تعديل عنوان المقطع:", oldTitle);
+            if (newTitle === null) return;
+            
+            const newUrl = prompt("تعديل رابط Vocaroo:", oldUrl);
+            if (newUrl === null) return;
+            
+            const newPresenter = prompt("تعديل اسم مقدم البرنامج:", oldPresenter);
+            if (newPresenter === null) return;
+
+            if (!newTitle.trim() || !newUrl.trim() || !newPresenter.trim()) {
+                alert('لا يمكن ترك الحقول فارغة!');
+                return;
+            }
+
+            try {
+                await db.collection('radio_clips').doc(id).update({
+                    title: newTitle.trim(),
+                    url: newUrl.trim(),
+                    presenter: newPresenter.trim()
+                });
+                fetchClips();
+                alert('تم تعديل المقطع بنجاح!');
+            } catch (error) {
+                console.error("خطأ أثناء التعديل: ", error);
+                alert('حدث خطأ أثناء محاولة التعديل.');
+            }
+        }
+
         let clickCount = 0;
         let clickTimer = null;
 
@@ -302,8 +370,10 @@
         function checkPassword() {
             const pass = document.getElementById('adminPassword').value;
             if (pass === '108') {
+                isAdmin = true;
                 document.getElementById('passwordModal').style.display = 'none';
                 document.getElementById('adminPanel').style.display = 'flex';
+                fetchClips();
             } else {
                 alert('كلمة السر غير صحيحة!');
             }
@@ -318,7 +388,6 @@
             document.getElementById('adminPanel').style.display = 'none';
         }
 
-        // إضافة حلقة جديدة وحفظها في السحابة
         async function addNewClip() {
             const title = document.getElementById('newTitle').value.trim();
             const url = document.getElementById('newUrl').value.trim();
@@ -329,9 +398,10 @@
                 return;
             }
 
+            // توليد التوقيت المحلي الفعلي للحظة الإضافة بدقة
             const now = new Date();
-            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-            const dateStr = now.toLocaleDateString('ar-EG', options);
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+            const dateStr = now.toLocaleString('ar-EG', options);
 
             const newClip = { 
                 title, 
@@ -348,10 +418,10 @@
                 document.getElementById('newPresenter').value = '';
                 closeAdminPanel();
                 fetchClips();
-                alert('تم حفظ ونشر المقطع في السحابة بنجاح!');
+                alert('تم حفظ ونشر المقطع في السحابة بالتوقيت المحلي الفعلي بنجاح!');
             } catch (error) {
                 console.error("خطأ أثناء الحفظ بالسحابة: ", error);
-                alert('حدث خطأ أثناء الحفظ بالسحابة. تأكد من تفعيل Firestore Database.');
+                alert('حدث خطأ أثناء الحفظ بالسحابة.');
             }
         }
 
@@ -375,7 +445,6 @@
             else if(type === 'tw') window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title), '_blank');
         }
 
-        // جلب الحلقات فور تحميل الصفحة
         window.addEventListener('DOMContentLoaded', fetchClips);
     </script>
 </body>
