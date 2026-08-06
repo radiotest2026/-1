@@ -78,7 +78,7 @@
 <body>
     <div class="mobile-news-container">
         
-        <!-- حاوية الحلقات (تمت إزالة عبارة التحميل المزعجة لتفتح مباشرة) -->
+        <!-- حاوية الحلقات -->
         <article id="clips-container" class="p-4 pt-6"></article>
 
         <!-- الفوتر -->
@@ -161,6 +161,8 @@
         const db = firebase.firestore();
 
         let isAdmin = false;
+        let allClipsData = []; // تخزين جميع المقاطع القادمة من السحابة
+        let visibleCount = 8;  // عدد المقاطع التي يتم عرضها مبدئياً
 
         const defaultClips = [
             {
@@ -206,10 +208,9 @@
         }
 
         async function fetchClips() {
-            const container = document.getElementById('clips-container');
             try {
                 const snapshot = await db.collection('radio_clips').orderBy('timestamp', 'desc').get();
-                let clips = [];
+                allClipsData = [];
                 
                 if (snapshot.empty) {
                     for (let clip of defaultClips) {
@@ -217,25 +218,28 @@
                     }
                     const newSnapshot = await db.collection('radio_clips').orderBy('timestamp', 'desc').get();
                     newSnapshot.forEach(doc => {
-                        clips.push({ id: doc.id, ...doc.data() });
+                        allClipsData.push({ id: doc.id, ...doc.data() });
                     });
                 } else {
                     snapshot.forEach(doc => {
-                        clips.push({ id: doc.id, ...doc.data() });
+                        allClipsData.push({ id: doc.id, ...doc.data() });
                     });
                 }
 
-                renderClips(clips);
+                renderClips();
             } catch (error) {
                 console.error("خطأ في جلب البيانات من السحابة: ", error);
             }
         }
 
-        function renderClips(clips) {
+        function renderClips() {
             const container = document.getElementById('clips-container');
             let html = '';
 
-            clips.forEach((clip) => {
+            // عرض المقاطع بناءً على العدد المسموح به حالياً (visibleCount)
+            const clipsToShow = allClipsData.slice(0, visibleCount);
+
+            clipsToShow.forEach((clip) => {
                 const vocaId = extractVocaId(clip.url);
                 
                 let adminControls = '';
@@ -297,7 +301,23 @@
                 </div>`;
             });
 
+            // إذا كان هناك مقاطع إضافية غير معروضة، يتم إظهار مستطيل "المزيد من الميديا" الأخضر
+            if (allClipsData.length > visibleCount) {
+                html += `
+                <div class="text-center my-6">
+                    <button onclick="loadMoreClips()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg border border-emerald-500/50 flex items-center justify-center gap-2 text-xs transition-all cursor-pointer">
+                        <i class="fa-solid fa-angles-down text-sm"></i> المزيد من الميديا (${allClipsData.length - visibleCount} مقطع إضافي)
+                    </button>
+                </div>`;
+            }
+
             container.innerHTML = html;
+        }
+
+        // دالة عرض المزيد عند الضغط على المستطيل الأخضر
+        function loadMoreClips() {
+            visibleCount += 8; // إضافة 8 مقاطع أخرى
+            renderClips();
         }
 
         async function deleteClip(id) {
@@ -370,7 +390,7 @@
                 isAdmin = true;
                 document.getElementById('passwordModal').style.display = 'none';
                 document.getElementById('adminPanel').style.display = 'flex';
-                fetchClips();
+                renderClips();
             } else {
                 alert('كلمة السر غير صحيحة!');
             }
@@ -413,6 +433,7 @@
                 document.getElementById('newUrl').value = '';
                 document.getElementById('newPresenter').value = '';
                 closeAdminPanel();
+                visibleCount = 8; // العودة لعرض أول 8 مقاطع ليشاهد المقطع الجديد في الأعلى
                 fetchClips();
                 alert('تم حفظ ونشر المقطع في السحابة بالتوقيت المحلي الفعلي بنجاح!');
             } catch (error) {
