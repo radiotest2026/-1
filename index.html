@@ -183,27 +183,6 @@
                 presenter: "محمود عبد الرحيم",
                 date: "2 أغسطس 2026 - 06:30 ص",
                 timestamp: Date.now() - 1000
-            },
-            {
-                title: "مداخلة الكابتن حسام علي مع برنامج «ملعب الناشئين»",
-                url: "https://voca.ro/1dXr7M1ig4oS",
-                presenter: "محمود عبد الرحيم",
-                date: "2 أغسطس 2026 - 06:25 ص",
-                timestamp: Date.now() - 2000
-            },
-            {
-                title: "مداخلة أمال فؤاد مع برنامج «ملعب الناشئين»",
-                url: "https://voca.ro/1jLy0ZFJwYAs",
-                presenter: "محمود عبد الرحيم",
-                date: "2 أغسطس 2026 - 06:17 ص",
-                timestamp: Date.now() - 3000
-            },
-            {
-                title: "مداخلة أيمن دجيش مع برنامج «ملعب الناشئين»",
-                url: "https://voca.ro/1morv5mClVVq",
-                presenter: "محمود عبد الرحيم",
-                date: "2 أغسطس 2026 - 06:12 ص",
-                timestamp: Date.now() - 4000
             }
         ];
 
@@ -243,7 +222,7 @@
 
             const clipsToShow = allClipsData.slice(0, visibleCount);
 
-            clipsToShow.forEach((clip) => {
+            clipsToShow.forEach((clip, index) => {
                 const vocaId = extractVocaId(clip.url);
                 
                 let adminControls = '';
@@ -296,10 +275,10 @@
                         <span class="text-xs font-bold text-gray-700">مشاركة المقطع:</span>
                         <div class="flex gap-2 items-center">
                             <a href="https://shababwryadhmedia.vercel.app/" title="الرئيسية" class="share-btn bg-blue-950"><i class="fa-solid fa-house"></i></a>
-                            <button onclick="copyLink('${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" title="نسخ العنوان والرابط" class="share-btn bg-amber-600"><i class="fa-solid fa-copy"></i></button>
-                            <button onclick="shareLink('wa', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-green-500"><i class="fa-brands fa-whatsapp"></i></button>
-                            <button onclick="shareLink('fb', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-blue-600"><i class="fa-brands fa-facebook-f"></i></button>
-                            <button onclick="shareLink('tw', '${clip.title.replace(/'/g, "\\'")}', '${clip.url}')" class="share-btn bg-black"><i class="fa-brands fa-x-twitter"></i></button>
+                            <button onclick="copyClipData(${index})" title="نسخ العنوان والرابط" class="share-btn bg-amber-600"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="shareClipData(${index}, 'wa')" class="share-btn bg-green-500"><i class="fa-brands fa-whatsapp"></i></button>
+                            <button onclick="shareClipData(${index}, 'fb')" class="share-btn bg-blue-600"><i class="fa-brands fa-facebook-f"></i></button>
+                            <button onclick="shareClipData(${index}, 'tw')" class="share-btn bg-black"><i class="fa-brands fa-x-twitter"></i></button>
                         </div>
                     </div>
                 </div>`;
@@ -320,6 +299,37 @@
         function loadMoreClips() {
             visibleCount += 8; 
             renderClips();
+        }
+
+        // دوال المشاركة والنسخ الآمنة باستخدام ترتيب الـ Index
+        function copyClipData(index) {
+            const clip = allClipsData[index];
+            if (!clip) return;
+            const textToCopy = clip.title + '\n\n' + clip.url;
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = textToCopy;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            
+            const toast = document.getElementById('copyToast');
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+
+        function shareClipData(index, type) {
+            const clip = allClipsData[index];
+            if (!clip) return;
+            const shareText = clip.title + '\n\n' + clip.url;
+            
+            if (type === 'wa') {
+                window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank');
+            } else if (type === 'fb') {
+                window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(clip.url), '_blank');
+            } else if (type === 'tw') {
+                window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(clip.url) + '&text=' + encodeURIComponent(clip.title), '_blank');
+            }
         }
 
         async function deleteClip(id) {
@@ -442,27 +452,6 @@
                 console.error("خطأ أثناء الحفظ بالسحابة: ", error);
                 alert('حدث خطأ أثناء الحفظ بالسحابة.');
             }
-        }
-
-        function copyLink(title, url) {
-            const textToCopy = title + '\n\n' + url;
-            const dummy = document.createElement('textarea');
-            document.body.appendChild(dummy);
-            dummy.value = textToCopy;
-            dummy.select();
-            document.execCommand('copy');
-            document.body.removeChild(dummy);
-            
-            const toast = document.getElementById('copyToast');
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
-        }
-
-        function shareLink(type, title, url) {
-            const shareText = title + '\n\n' + url;
-            if(type === 'wa') window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank');
-            else if(type === 'fb') window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url), '_blank');
-            else if(type === 'tw') window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title), '_blank');
         }
 
         window.addEventListener('DOMContentLoaded', fetchClips);
